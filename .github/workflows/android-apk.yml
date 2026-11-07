@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - master
 
 permissions:
   contents: read
@@ -16,63 +15,104 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout project
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find project folder
+      - name: Restore project folders
         shell: bash
         run: |
-          FILE=$(find . -name package.json \
-            -not -path "*/node_modules/*" \
-            -not -path "*/.next/*" \
-            | head -n 1)
+          set -e
 
-          if [ -z "$FILE" ]; then
-            echo "ERROR: package.json not found"
-            exit 1
-          fi
+          mkdir -p src/app src/components/screens src/lib src/db
+          mkdir -p public/icons
 
-          DIR=$(dirname "$FILE")
-          echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
-          echo "Project found in: $DIR"
+          move_file() {
+            if [ -f "$1" ] && [ ! -f "$2" ]; then
+              mkdir -p "$(dirname "$2")"
+              mv "$1" "$2"
+            fi
+          }
+
+          # Components
+          for f in App Onboarding SettingsSheet TaskRow TaskSheet icons ui; do
+            move_file "$f.tsx" "src/components/$f.tsx"
+          done
+
+          # Screens
+          for f in Focus Profile Store Tasks Today; do
+            move_file "$f.tsx" "src/components/screens/$f.tsx"
+          done
+
+          # Libraries
+          for f in fx i18n seed store types utils; do
+            for ext in ts tsx; do
+              move_file "$f.$ext" "src/lib/$f.$ext"
+            done
+          done
+
+          # Database
+          move_file index.ts src/db/index.ts
+          move_file schema.ts src/db/schema.ts
+
+          # Next.js app
+          move_file page.tsx src/app/page.tsx
+          move_file layout.tsx src/app/layout.tsx
+          move_file globals.css src/app/globals.css
+
+          # Public files
+          move_file favicon.svg public/favicon.svg
+          move_file manifest.webmanifest public/manifest.webmanifest
+          move_file sw.js public/sw.js
+          move_file icon.svg public/icons/icon.svg
+
+          # Validate project
+          test -f package.json
+          test -f src/app/page.tsx
+          test -f src/app/layout.tsx
+          test -f src/components/App.tsx
+          test -f src/lib/store.tsx
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
 
-      - name: Install dependencies
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Install project dependencies
         run: npm install
 
-      - name: Configure Next.js Offline Export
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Install Capacitor
+        run: |
+          npm install @capacitor/core@^7
+          npm install @capacitor/cli@^7
+          npm install @capacitor/android@^7
+          npm install @capacitor/local-notifications@^7
+
+      - name: Configure Next.js
         run: |
           cat > next.config.ts <<'EOF'
           import type { NextConfig } from "next";
 
           const nextConfig: NextConfig = {
             output: "export",
+            images: { unoptimized: true },
+            trailingSlash: true,
           };
 
           export default nextConfig;
           EOF
 
+          # Remove server-only API routes for offline static export
           rm -rf src/app/api
 
-      - name: Install Capacitor
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
-
       - name: Configure Capacitor
-        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           cat > capacitor.config.ts <<'EOF'
           import type { CapacitorConfig } from "@capacitor/cli";
@@ -82,25 +122,28 @@ jobs:
             appName: "Dr.Yousef Tasks",
             webDir: "out",
             bundledWebRuntime: false,
+            plugins: {
+              LocalNotifications: {
+                smallIcon: "ic_stat_icon_config_sample",
+                iconColor: "#6c63ff"
+              }
+            }
           };
 
           export default config;
           EOF
 
-      - name: Build Next.js
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: Build offline web app
         run: npm run build
 
       - name: Add Android
-        working-directory: ${{ env.PROJECT_DIR }}
         run: npx cap add android
 
       - name: Sync Android
-        working-directory: ${{ env.PROJECT_DIR }}
         run: npx cap sync android
 
       - name: Build APK
-        working-directory: ${{ env.PROJECT_DIR }}/android
+        working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -109,5 +152,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DrYousef-Tasks-APK
-          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           retention-days: 30
