@@ -16,8 +16,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download project
+      - name: Checkout project
         uses: actions/checkout@v4
+
+      - name: Find project folder
+        shell: bash
+        run: |
+          FILE=$(find . -name package.json \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.next/*" \
+            | head -n 1)
+
+          if [ -z "$FILE" ]; then
+            echo "ERROR: package.json not found"
+            exit 1
+          fi
+
+          DIR=$(dirname "$FILE")
+          echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
+          echo "Project found in: $DIR"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,19 +48,59 @@ jobs:
           java-version: 21
 
       - name: Install dependencies
+        working-directory: ${{ env.PROJECT_DIR }}
         run: npm install
 
-      - name: Build offline application
+      - name: Configure Next.js Offline Export
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          cat > next.config.ts <<'EOF'
+          import type { NextConfig } from "next";
+
+          const nextConfig: NextConfig = {
+            output: "export",
+          };
+
+          export default nextConfig;
+          EOF
+
+          rm -rf src/app/api
+
+      - name: Install Capacitor
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+
+      - name: Configure Capacitor
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          cat > capacitor.config.ts <<'EOF'
+          import type { CapacitorConfig } from "@capacitor/cli";
+
+          const config: CapacitorConfig = {
+            appId: "com.dryousef.tasks",
+            appName: "Dr.Yousef Tasks",
+            webDir: "out",
+            bundledWebRuntime: false,
+          };
+
+          export default config;
+          EOF
+
+      - name: Build Next.js
+        working-directory: ${{ env.PROJECT_DIR }}
         run: npm run build
 
-      - name: Add Android platform
+      - name: Add Android
+        working-directory: ${{ env.PROJECT_DIR }}
         run: npx cap add android
 
-      - name: Sync Android project
+      - name: Sync Android
+        working-directory: ${{ env.PROJECT_DIR }}
         run: npx cap sync android
 
       - name: Build APK
-        working-directory: android
+        working-directory: ${{ env.PROJECT_DIR }}/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
@@ -52,5 +109,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DrYousef-Tasks-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
