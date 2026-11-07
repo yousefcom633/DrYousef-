@@ -1,4 +1,4 @@
-name: Build DrYousef Tasks APK
+name: DrYousef Tasks - Android APK
 
 on:
   workflow_dispatch:
@@ -15,15 +15,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # 1. Download project
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore project folders
+      # 2. Setup Node
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 3. Setup Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # 4. Organize project files
+      - name: Organize project
         shell: bash
         run: |
           set -e
 
-          mkdir -p src/app src/components/screens src/lib src/db
+          mkdir -p src/app
+          mkdir -p src/components/screens
+          mkdir -p src/lib
+          mkdir -p src/db
           mkdir -p public/icons
 
           move_file() {
@@ -34,9 +52,11 @@ jobs:
           }
 
           # Components
-          for f in App Onboarding SettingsSheet TaskRow TaskSheet icons ui; do
+          for f in App Onboarding SettingsSheet TaskRow TaskSheet ui; do
             move_file "$f.tsx" "src/components/$f.tsx"
           done
+
+          move_file icons.ts src/components/icons.ts
 
           # Screens
           for f in Focus Profile Store Tasks Today; do
@@ -54,7 +74,7 @@ jobs:
           move_file index.ts src/db/index.ts
           move_file schema.ts src/db/schema.ts
 
-          # Next.js app
+          # Next.js files
           move_file page.tsx src/app/page.tsx
           move_file layout.tsx src/app/layout.tsx
           move_file globals.css src/app/globals.css
@@ -65,36 +85,26 @@ jobs:
           move_file sw.js public/sw.js
           move_file icon.svg public/icons/icon.svg
 
-          # Validate project
+          # Validate
           test -f package.json
           test -f src/app/page.tsx
           test -f src/app/layout.tsx
           test -f src/components/App.tsx
           test -f src/lib/store.tsx
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+      # 5. Install dependencies
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-          cache: gradle
-
-      - name: Install project dependencies
-        run: npm install
-
+      # 6. Install Capacitor
       - name: Install Capacitor
         run: |
-          npm install @capacitor/core@^7
-          npm install @capacitor/cli@^7
-          npm install @capacitor/android@^7
-          npm install @capacitor/local-notifications@^7
+          npm install @capacitor/core@7
+          npm install @capacitor/cli@7
+          npm install @capacitor/android@7
+          npm install @capacitor/local-notifications@7
 
+      # 7. Configure offline export
       - name: Configure Next.js
         run: |
           cat > next.config.ts <<'EOF'
@@ -102,16 +112,38 @@ jobs:
 
           const nextConfig: NextConfig = {
             output: "export",
-            images: { unoptimized: true },
-            trailingSlash: true,
+            images: {
+              unoptimized: true
+            },
+            trailingSlash: true
           };
 
           export default nextConfig;
           EOF
 
-          # Remove server-only API routes for offline static export
           rm -rf src/app/api
 
+      # 8. Remove external font dependency
+      - name: Prepare offline fonts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("src/app/layout.tsx")
+          s = p.read_text()
+
+          lines = []
+          for line in s.splitlines():
+              if "fonts.googleapis.com" in line:
+                  continue
+              if "fonts.gstatic.com" in line:
+                  continue
+              lines.append(line)
+
+          p.write_text("\n".join(lines) + "\n")
+          PY
+
+      # 9. Configure Capacitor
       - name: Configure Capacitor
         run: |
           cat > capacitor.config.ts <<'EOF'
@@ -121,37 +153,16 @@ jobs:
             appId: "com.dryousef.tasks",
             appName: "Dr.Yousef Tasks",
             webDir: "out",
-            bundledWebRuntime: false,
-            plugins: {
-              LocalNotifications: {
-                smallIcon: "ic_stat_icon_config_sample",
-                iconColor: "#6c63ff"
-              }
-            }
+            bundledWebRuntime: false
           };
 
           export default config;
           EOF
 
-      - name: Build offline web app
+      # 10. Build web application
+      - name: Build Next.js
         run: npm run build
 
+      # 11. Add Android
       - name: Add Android
         run: npx cap add android
-
-      - name: Sync Android
-        run: npx cap sync android
-
-      - name: Build APK
-        working-directory: android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: DrYousef-Tasks-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 30
