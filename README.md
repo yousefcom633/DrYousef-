@@ -1,0 +1,1 @@
+# Dr.Yousef Tasks — Android Offline Ready\n\nConfigured for offline Android packaging with Capacitor and GitHub Actions.\n\nSee `GITHUB_ANDROID_AR.md` for Arabic build and notification instructions.\n
