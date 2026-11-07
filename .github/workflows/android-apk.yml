@@ -1,4 +1,4 @@
-name: DrYousef Tasks - Android APK
+name: DrYousef Tasks Android
 
 on:
   workflow_dispatch:
@@ -11,14 +11,13 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -29,11 +28,10 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Organize project
-        shell: bash
+      - name: Organize files
         run: |
           set -e
-          mkdir -p src/app src/components/screens src/lib src/db public/icons
+          mkdir -p src/app src/components/screens src/lib public
 
           move_file() {
             if [ -f "$1" ] && [ ! -f "$2" ]; then
@@ -65,32 +63,38 @@ jobs:
           move_file favicon.svg public/favicon.svg
           move_file manifest.webmanifest public/manifest.webmanifest
           move_file sw.js public/sw.js
-          move_file icon.svg public/icons/icon.svg
 
           test -f package.json
           test -f src/app/page.tsx
-          test -f src/app/layout.tsx
+          test -f src/components/App.tsx
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
       - name: Install Capacitor
         run: |
-          npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/local-notifications@7
+          npm install @capacitor/core@7
+          npm install @capacitor/cli@7
+          npm install @capacitor/android@7
 
-      - name: Configure Next.js
+      - name: Configure Next
         run: |
           cat > next.config.ts <<'EOF'
           import type { NextConfig } from "next";
 
-          const nextConfig: NextConfig = {
+          const config: NextConfig = {
             output: "export",
-            images: { unoptimized: true },
-            trailingSlash: true
+            assetPrefix: ".",
+            trailingSlash: true,
+            images: {
+              unoptimized: true
+            }
           };
 
-          export default nextConfig;
+          export default config;
           EOF
+
+          rm -rf src/app/api
 
       - name: Configure Capacitor
         run: |
@@ -100,20 +104,39 @@ jobs:
           const config: CapacitorConfig = {
             appId: "com.dryousef.tasks",
             appName: "Dr.Yousef Tasks",
-            webDir: "out"
+            webDir: "out",
+            server: {
+              hostname: "localhost",
+              androidScheme: "https"
+            }
           };
 
           export default config;
           EOF
 
-      - name: Build web application
+      - name: Build Next
         run: npm run build
 
-      - name: Add Android platform
+      - name: Verify web files
+        run: |
+          set -e
+          test -s out/index.html
+          echo "HTML FOUND"
+          find out -maxdepth 3 -type f | head -50
+          test -d out/_next
+
+      - name: Add Android
         run: npx cap add android
 
       - name: Sync Android
         run: npx cap sync android
+
+      - name: Verify Android assets
+        run: |
+          set -e
+          test -s android/app/src/main/assets/public/index.html
+          test -d android/app/src/main/assets/public/_next
+          echo "ANDROID WEB ASSETS VERIFIED"
 
       - name: Build APK
         working-directory: android
