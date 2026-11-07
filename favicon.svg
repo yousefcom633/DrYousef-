@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B7BFF"/><stop offset="0.55" stop-color="#6C63FF"/><stop offset="1" stop-color="#4A7DFF"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#FFE08A"/><stop offset="1" stop-color="#FFB020"/></linearGradient>
+<radialGradient id="glow" cx="0.5" cy="0.35" r="0.6"><stop offset="0" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#2a1f8f" flood-opacity="0.35"/></filter>
+</defs>
+<rect width="1024" height="1024" fill="url(#bg)"/><rect width="1024" height="1024" fill="url(#glow)"/>
+<g transform="translate(512 512) scale(0.92) translate(-512 -512)">
+<g filter="url(#sh)">
+<path d="M270 700 L452 860 L770 560" fill="none" stroke="#fff" stroke-width="84" stroke-linecap="round" stroke-linejoin="round" opacity="0.96"/>
+<polygon points="512.0,120.0 593.1,308.4 797.3,327.3 643.2,462.6 688.3,662.7 512.0,558.0 335.7,662.7 380.8,462.6 226.7,327.3 430.9,308.4" fill="url(#gold)" stroke="url(#gold)" stroke-width="86" stroke-linejoin="round"/>
+</g>
+<polygon points="512.0,120.0 593.1,308.4 797.3,327.3 643.2,462.6 688.3,662.7 512.0,558.0 335.7,662.7 380.8,462.6 226.7,327.3 430.9,308.4" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="6" stroke-linejoin="round" transform="translate(0 -22) scale(1)" />
+</g>
+</svg>

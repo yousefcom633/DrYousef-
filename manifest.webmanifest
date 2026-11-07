@@ -1,0 +1,46 @@
+{
+  "name": "مهمات Dr.Yousef",
+  "short_name": "Dr.Yousef Tasks",
+  "description": "أنجز مهامك، اكسب نجوم، وافتح مكافآتك",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#6C63FF",
+  "theme_color": "#6C63FF",
+  "lang": "ar",
+  "dir": "auto",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "إضافة مهمة · Add task",
+      "short_name": "Add",
+      "url": "/?action=add",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "بدء تركيز · Start focus",
+      "short_name": "Focus",
+      "url": "/?tab=focus",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
